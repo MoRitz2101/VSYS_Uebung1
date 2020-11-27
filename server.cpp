@@ -18,62 +18,60 @@
 #include <filesystem>
 #include <thread>
 #include <mutex>
-
 namespace fs = std::filesystem;
 #define BUF 1024
 using namespace std;
 
 std::vector<std::string> split_string(const std::string &str, const std::string &delimiter);
 std::string convertToString(char *a, int size);
-std::string sendMessage(std::vector<std::string> fromClient);
-std::string listMessages(std::string user);
-std::string deleteMessage(std::string user, std::string uuid);
-std::string readMessage(std::string user, std::string uuid);
+std::string sendMessage(std::vector<std::string> fromClient , std::string pathFromTerminal);
+std::string listMessages(std::string user, std::string pathFromTerminal);
+std::string deleteMessage(std::string user, std::string uuid, std::string pathFromTerminal);
+std::string readMessage(std::string user, std::string uuid, std::string pathFromTerminal);
 std::string getPathfromUUID(std::string path, std::string uuidWanted);
 std::string get_uuid();
 std::mutex mtx;
-
-void *connectionHandler(int clientSocket, sockaddr_in client);
+void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFromTerminal);
 
 int main(int argc, char *argv[])
 {
-    
-    if( argc < 2 ){
+          if( argc < 3 ){
         cerr << "Please enter Port" << endl;
+         return -1;
+  }
+        if (atoi(argv[1]) == 0){
+        cerr << "No valid Port Number" << endl;
         return -1;
-    }
-    // Create a socket
-    int listening = socket(AF_INET, SOCK_STREAM, 0);
-    if (listening == -1)
+          }
+         int port = atoi(argv[1]);
+        std::string pathFromTerminal = argv[2];
+    while (true)
     {
-        cerr << "Can't create a socket! Quitting" << endl;
-        return -1;
-    }
-    if (atoi(argv[1]) == 0){
-    cerr << "No valid Port Number" << endl;
-    return -1;
+        // Create a socket
+        int listening = socket(AF_INET, SOCK_STREAM, 0);
+        if (listening == -1)
+        {
+            cerr << "Can't create a socket! Quitting" << endl;
+            return -1;
         }
-        int port = atoi(argv[1]);
-    
+        
 
-    // Bind the ip address and port to a socket
-    sockaddr_in hint;
-    hint.sin_family = AF_INET;
-    hint.sin_port = htons(port);
-    inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
+        // Bind the ip address and port to a socket
+        sockaddr_in hint;
+        hint.sin_family = AF_INET;
+        hint.sin_port = htons(port);
+        inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
 
-    //Make sure listening port can be reused after being closed
-    int flag = 1;
-    if (-1 == setsockopt(listening, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)))
-    {
-        cerr << ("setsockopt fail") << endl;
-    }
+        //Make sure listening port can be reused after being closed
+        int flag = 1;
+        if (-1 == setsockopt(listening, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)))
+        {
+            cerr << ("setsockopt fail") << endl;
+        }
 
-    bind(listening, (sockaddr *)&hint, sizeof(hint));
-    // Tell Winsock the socket is for listening
-    listen(listening, SOMAXCONN);
-
-    while (true){
+        bind(listening, (sockaddr *)&hint, sizeof(hint));
+        // Tell Winsock the socket is for listening
+        listen(listening, SOMAXCONN);
 
         cerr << "Waiting for Connection...." << endl;
         // Wait for a connection
@@ -84,16 +82,18 @@ int main(int argc, char *argv[])
         int clientSocket = accept(listening, (sockaddr *)&client, &clientSize);
         //Start new Thread using connection handler and by passing the client socket
         cout << "start thread" << endl;
-        std::thread t(connectionHandler, clientSocket, client);
+        cout << pathFromTerminal << endl;
+        std::thread t(connectionHandler, clientSocket, client, pathFromTerminal);
         cout << "Detatch thread" << endl;
         t.detach();
+        close(listening);
     }
 
     cout << "ende" << endl;
     return 0;
 }
 
-void *connectionHandler(int clientSocket, sockaddr_in client)
+void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFromTerminal)
 {
     char host[NI_MAXHOST];    // Client's remote name
     char service[NI_MAXSERV]; // Service (i.e. port) the client is connect on
@@ -152,10 +152,8 @@ void *connectionHandler(int clientSocket, sockaddr_in client)
         {
             if (splittedMessage.size() > 5)
             {
-                mtx.lock();
-                response = sendMessage(splittedMessage);
+                response = sendMessage(splittedMessage, pathFromTerminal);
                 splittedMessage.clear();
-                mtx.unlock();
             }
             else
             {
@@ -166,19 +164,19 @@ void *connectionHandler(int clientSocket, sockaddr_in client)
         {
             mtx.lock();
             std::cout << "Into Read" << std::endl;
-            response = readMessage(splittedMessage.at(1), splittedMessage.at(2));
+            response = readMessage(splittedMessage.at(1), splittedMessage.at(2), pathFromTerminal);
             mtx.unlock();
         }
         else if (splittedMessage.at(0) == " LIST")
         {
-            mtx.lock();
-            response = listMessages(splittedMessage.at(1));
+            mtx.unlock();
+            response = listMessages(splittedMessage.at(1),pathFromTerminal);
             mtx.unlock();
         }
         else if (splittedMessage.at(0) == " DEL")
         {
-            mtx.lock();
-            response = deleteMessage(splittedMessage.at(1), splittedMessage.at(2));
+            mtx.unlock();
+            response = deleteMessage(splittedMessage.at(1), splittedMessage.at(2),pathFromTerminal);
             mtx.unlock();
         }
         response = response + "\0";
@@ -221,14 +219,14 @@ std::string convertToString(char *a, int size)
     return s;
 }
 
-std::string sendMessage(std::vector<std::string> fromClient)
+std::string sendMessage(std::vector<std::string> fromClient , std::string pathFromTerminal)
 {
     std::string Sender = fromClient.at(1);
     std::string Empfaenger = fromClient.at(2);
     std::string Betreff = fromClient.at(3);
     std::string Nachricht = fromClient.at(4);
     std::string uuid = get_uuid();
-    std::string folderPath = "./mail/" + Empfaenger;
+    std::string folderPath = pathFromTerminal + "/" + Empfaenger;
 
     fromClient.clear();
 
@@ -254,9 +252,10 @@ std::string sendMessage(std::vector<std::string> fromClient)
     return "ok\0";
 }
 
-std::string listMessages(std::string user)
+std::string listMessages(std::string user , std::string pathFromTerminal)
 {
-    std::string path = "./mail/" + user;
+    std::string path = pathFromTerminal + "/" + user;
+    cout << path << endl;
     std::string directories = "";
     std::string mailList = "";
     std::string returnString = "";
@@ -296,9 +295,9 @@ std::string listMessages(std::string user)
     return returnString;
 }
 
-std::string deleteMessage(std::string user, std::string uuid)
+std::string deleteMessage(std::string user, std::string uuid, std::string pathFromTerminal)
 {
-    std::string path = "./mail/" + user;
+    std::string path = pathFromTerminal + "/" + user;
 
     std::string fullPath = getPathfromUUID(path, uuid);
     if (fs::remove(fullPath))
@@ -311,9 +310,9 @@ std::string deleteMessage(std::string user, std::string uuid)
     }
 }
 
-std::string readMessage(std::string user, std::string uuid)
+std::string readMessage(std::string user, std::string uuid, std::string pathFromTerminal)
 {
-    std::string path = "./mail/" + user;
+    std::string path = pathFromTerminal + "/" + user;
     std::string fullPath = getPathfromUUID(path, uuid);
     std::string message = "";
 
