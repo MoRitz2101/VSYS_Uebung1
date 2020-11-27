@@ -7,11 +7,10 @@
 #include <string.h>
 #include <string>
 
-
 using namespace std;
 
-int main()
-{   
+int main(int argc, char **argv)
+{
     //	Create a socket
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == -1)
@@ -19,9 +18,21 @@ int main()
         return 1;
     }
 
+    if (argc < 3)
+    {
+        cerr << "Please enter Port and Ip Adress" << endl;
+        return -1;
+    }
+    
     //	Create a hint structure for the server we're connecting with
-    int port = 54000;
-    string ipAddress = "127.0.0.1";
+    cout<<atoi(argv[1])<<endl;
+    if (atoi(argv[1]) == 0)
+    {
+        cerr << "No valid Port Number" << endl;
+        return -1;
+    }
+    int port = atoi(argv[1]);
+    string ipAddress = argv[2];
 
     sockaddr_in hint;
     hint.sin_family = AF_INET;
@@ -29,51 +40,53 @@ int main()
     inet_pton(AF_INET, ipAddress.c_str(), &hint.sin_addr);
 
     //	Connect to the server on the socket
-    int connectRes = connect(sock, (sockaddr*)&hint, sizeof(hint));
+    int connectRes = connect(sock, (sockaddr *)&hint, sizeof(hint));
     if (connectRes == -1)
     {
-        return 1;
+        cout << "There was an error getting response from server\r\n";
+        return 0;
     }
 
     //	While loop:
     char buf[4096];
     string userInput;
-    printf ("Connection with server established\n");
+    printf("Connection with server established\n");
     int bytesReceived = recv(sock, buf, 4096, 0);
-     if (bytesReceived == -1)
-        {
-            cout << "There was an error getting response from server\r\n";
-        }
-        else
-        {
-            //		Display response
-            cout << "SERVER> " << string(buf, bytesReceived) << "\r\n";
-        }
-    do {
+    if (bytesReceived == -1)
+    {
+        cout << "There was an error getting response from server\r\n";
+    }
+    else
+    {
+        //		Display response
+        cout << "SERVER> " << string(buf, bytesReceived) << "\r\n";
+    }
+    do
+    {
         //		Enter lines of text
         cout << "Enter your command:> ";
         userInput = "";
-        int x =0;
+        int x = 0;
         string line = "";
-    while (getline(cin, line))
-      {
-         line = line + "\n";
-         if (line.compare(".\n") != 0)
-         {
-         userInput = userInput + line;
-         }
-         else{
-             x = 1;
-             break;
-             
-         }
-         if(x==1)
-        break;
-      }
+        while (getline(cin, line))
+        {
+            line = line + "\n";
+            if (line.compare(".\n") != 0)
+            {
+                userInput = userInput + line;
+            }
+            else
+            {
+                x = 1;
+                break;
+            }
+            if (x == 1)
+                break;
+        }
 
         //		Send to server
         int sendRes = send(sock, userInput.c_str(), userInput.size() + 1, 0);
-        userInput ="";
+        userInput = "";
         if (sendRes == -1)
         {
             cout << "Could not send to server! Whoops!\r\n";
@@ -92,7 +105,7 @@ int main()
             //		Display response
             cout << "SERVER> " << string(buf, bytesReceived) << "\r\n";
         }
-    } while(true);
+    } while (true);
 
     //	Close the socket
     close(sock);

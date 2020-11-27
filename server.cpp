@@ -29,8 +29,13 @@ std::string readMessage(std::string user, std::string uuid);
 std::string getPathfromUUID(std::string path, std::string uuidWanted);
 std::string get_uuid();
 
-int main()
+int main(int argc, char **argv)
 {
+      if( argc < 2 ){
+      cerr << "Please enter Port" << endl;
+    return -1;
+  }
+
     // Create a socket
     int listening = socket(AF_INET, SOCK_STREAM, 0);
     if (listening == -1)
@@ -41,13 +46,19 @@ int main()
 
     // Bind the ip address and port to a socket
     sockaddr_in hint;
+    if(atoi(argv[1])== 0){
+        cerr << "No valid Port Number" << endl;
+        return -1;
+    }
+    int port = atoi(argv[1]);
+        
     hint.sin_family = AF_INET;
-    hint.sin_port = htons(54000);
+    hint.sin_port = htons(port);
     inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
 
     bind(listening, (sockaddr *)&hint, sizeof(hint));
 
-    // Tell Winsock the socket is for listening
+    // the socket is for listening
     listen(listening, SOMAXCONN);
     cerr << "Waiting for Connection...." << endl;
     // Wait for a connection
@@ -64,7 +75,7 @@ int main()
 
     if (getnameinfo((sockaddr *)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)
     {
-        cout << host << " connected on port " << service << endl;
+        cout << host << " connected on port " << port << endl;
         char welcome[50];
         strcpy(welcome, "Welcome to Server, Please enter your command:\n");
         send(clientSocket, welcome, strlen(welcome), 0);
@@ -72,7 +83,7 @@ int main()
     else
     {
         inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
-        cout << host << " connected on port " << ntohs(client.sin_port) << endl;
+        cout << host << " connected on port " << port << endl;
         char welcome[50];
         strcpy(welcome, "Welcome to Server, Please enter your command:\n");
         send(clientSocket, welcome, strlen(welcome), 0);
@@ -114,12 +125,10 @@ int main()
             {
                 response = sendMessage(splittedMessage);
                 splittedMessage.clear();
-                //  strcpy(buf, (okornot + "\0").c_str());
             }
             else
             {
                 response = "failed\n";
-                //strcpy(buf, (okornot + "\0").c_str());
             }
         }
         else if (splittedMessage.at(0) == " READ")
@@ -130,12 +139,10 @@ int main()
         else if (splittedMessage.at(0) == " LIST")
         {
             response = listMessages(splittedMessage.at(1));
-            //strcpy(buf, (okornot + "\0").c_str());
         }
         else if (splittedMessage.at(0) == " DEL")
         {
             response = deleteMessage(splittedMessage.at(1), splittedMessage.at(2));
-            //strcpy(buf, (okornot + "\0").c_str());
         }
         else if (splittedMessage.at(0) == " QUIT")
         {
