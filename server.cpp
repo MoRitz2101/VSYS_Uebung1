@@ -16,6 +16,7 @@
 #include <dirent.h>
 #include <bits/stdc++.h>
 #include <filesystem>
+#include <thread>
 namespace fs = std::filesystem;
 #define BUF 1024
 using namespace std;
@@ -29,44 +30,68 @@ std::string readMessage(std::string user, std::string uuid);
 std::string getPathfromUUID(std::string path, std::string uuidWanted);
 std::string get_uuid();
 
-int main(int argc, char **argv)
+void *connectionHandler(int clientSocket, sockaddr_in client);
+
+int main(int argc, char *argv[])
 {
-      if( argc < 2 ){
-      cerr << "Please enter Port" << endl;
-    return -1;
-  }
-
-    // Create a socket
-    int listening = socket(AF_INET, SOCK_STREAM, 0);
-    if (listening == -1)
+    while (true)
     {
-        cerr << "Can't create a socket! Quitting" << endl;
-        return -1;
-    }
-
-    // Bind the ip address and port to a socket
-    sockaddr_in hint;
-    if(atoi(argv[1])== 0){
+          if( argc < 2 ){
+        cerr << "Please enter Port" << endl;
+         return -1;
+  }
+        // Create a socket
+        int listening = socket(AF_INET, SOCK_STREAM, 0);
+        if (listening == -1)
+        {
+            cerr << "Can't create a socket! Quitting" << endl;
+            return -1;
+        }
+        if (atoi(argv[1]) == 0){
         cerr << "No valid Port Number" << endl;
         return -1;
-    }
-    int port = atoi(argv[1]);
+          }
+         int port = atoi(argv[1]);
         
-    hint.sin_family = AF_INET;
-    hint.sin_port = htons(port);
-    inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
 
-    bind(listening, (sockaddr *)&hint, sizeof(hint));
+        // Bind the ip address and port to a socket
+        sockaddr_in hint;
+        hint.sin_family = AF_INET;
+        hint.sin_port = htons(port);
+        inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
 
-    // the socket is for listening
-    listen(listening, SOMAXCONN);
-    cerr << "Waiting for Connection...." << endl;
-    // Wait for a connection
-    sockaddr_in client;
-    socklen_t clientSize = sizeof(client);
+        //Make sure listening port can be reused after being closed
+        int flag = 1;
+        if (-1 == setsockopt(listening, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)))
+        {
+            cerr << ("setsockopt fail") << endl;
+        }
 
-    int clientSocket = accept(listening, (sockaddr *)&client, &clientSize);
+        bind(listening, (sockaddr *)&hint, sizeof(hint));
+        // Tell Winsock the socket is for listening
+        listen(listening, SOMAXCONN);
 
+        cerr << "Waiting for Connection...." << endl;
+        // Wait for a connection
+        sockaddr_in client;
+        socklen_t clientSize = sizeof(client);
+
+        //Create Client Socket by Accepting incoming request
+        int clientSocket = accept(listening, (sockaddr *)&client, &clientSize);
+        //Start new Thread using connection handler and by passing the client socket
+        cout << "start thread" << endl;
+        std::thread t(connectionHandler, clientSocket, client);
+        cout << "Detatch thread" << endl;
+        t.detach();
+        close(listening);
+    }
+
+    cout << "ende" << endl;
+    return 0;
+}
+
+void *connectionHandler(int clientSocket, sockaddr_in client)
+{
     char host[NI_MAXHOST];    // Client's remote name
     char service[NI_MAXSERV]; // Service (i.e. port) the client is connect on
 
@@ -75,7 +100,7 @@ int main(int argc, char **argv)
 
     if (getnameinfo((sockaddr *)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)
     {
-        cout << host << " connected on port " << port << endl;
+        //cout << host << " connected on port " << port << endl;
         char welcome[50];
         strcpy(welcome, "Welcome to Server, Please enter your command:\n");
         send(clientSocket, welcome, strlen(welcome), 0);
@@ -83,14 +108,15 @@ int main(int argc, char **argv)
     else
     {
         inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
-        cout << host << " connected on port " << port << endl;
+        // cout << host << " connected on port " << port << endl;
         char welcome[50];
         strcpy(welcome, "Welcome to Server, Please enter your command:\n");
         send(clientSocket, welcome, strlen(welcome), 0);
     }
 
     // Close listening socket
-    close(listening);
+    //cout << "close Listening" << endl;
+    //close(listening);
 
     // While loop: accept and echo message back to client
     char buf[4096];
@@ -133,7 +159,7 @@ int main(int argc, char **argv)
         }
         else if (splittedMessage.at(0) == " READ")
         {
-            std::cout<<"Into Read"<<std::endl;
+            std::cout << "Into Read" << std::endl;
             response = readMessage(splittedMessage.at(1), splittedMessage.at(2));
         }
         else if (splittedMessage.at(0) == " LIST")
@@ -146,7 +172,6 @@ int main(int argc, char **argv)
         }
         else if (splittedMessage.at(0) == " QUIT")
         {
-            
         }
         response = response + "\0";
         bytesReceived = response.size();
@@ -213,10 +238,10 @@ std::string sendMessage(std::vector<std::string> fromClient)
     {
         return "failed\0";
     }
-    fs << ("Sender: " + Sender+"\n").c_str();
-    fs << ("Empfaenger: "+Empfaenger+"\n").c_str();
-    fs << ("Betreff: " + Betreff+"\n").c_str();
-    fs << ("Message: "+Nachricht).c_str();
+    fs << ("Sender: " + Sender + "\n").c_str();
+    fs << ("Empfaenger: " + Empfaenger + "\n").c_str();
+    fs << ("Betreff: " + Betreff + "\n").c_str();
+    fs << ("Message: " + Nachricht).c_str();
     fs.close();
     return "ok\0";
 }
@@ -278,16 +303,17 @@ std::string deleteMessage(std::string user, std::string uuid)
     }
 }
 
-std::string readMessage(std::string user, std::string uuid){
-   std::string path = "./mail/" + user;
-   std::string fullPath = getPathfromUUID(path, uuid);
-   std::string message = "";
+std::string readMessage(std::string user, std::string uuid)
+{
+    std::string path = "./mail/" + user;
+    std::string fullPath = getPathfromUUID(path, uuid);
+    std::string message = "";
 
     std::ifstream file(fullPath);
-    std::string str; 
+    std::string str;
     while (std::getline(file, str))
     {
-       message = message + str +"\n";
+        message = message + str + "\n";
     }
     return message;
 }
@@ -315,8 +341,7 @@ std::string getPathfromUUID(std::string path, std::string uuidWanted)
             }
         }
     }
-        return std::string("error");
-    
+    return std::string("error");
 }
 string get_uuid()
 {
