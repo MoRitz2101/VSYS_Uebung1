@@ -16,6 +16,7 @@
 #include <dirent.h>
 #include <bits/stdc++.h>
 #include <filesystem>
+#include <thread>
 namespace fs = std::filesystem;
 #define BUF 1024
 using namespace std;
@@ -29,33 +30,55 @@ std::string readMessage(std::string user, std::string uuid);
 std::string getPathfromUUID(std::string path, std::string uuidWanted);
 std::string get_uuid();
 
-int main()
+void *connectionHandler(int clientSocket, sockaddr_in client);
+
+int main(int argc, char* argv[])
 {
-    // Create a socket
-    int listening = socket(AF_INET, SOCK_STREAM, 0);
-    if (listening == -1)
-    {
-        cerr << "Can't create a socket! Quitting" << endl;
-        return -1;
-    }
+    while(true){
+        // Create a socket
+        int listening = socket(AF_INET, SOCK_STREAM, 0);
+        if (listening == -1)
+        {
+            cerr << "Can't create a socket! Quitting" << endl;
+            return -1;
+        }
 
-    // Bind the ip address and port to a socket
-    sockaddr_in hint;
-    hint.sin_family = AF_INET;
-    hint.sin_port = htons(54000);
-    inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
+        // Bind the ip address and port to a socket
+        sockaddr_in hint;
+        hint.sin_family = AF_INET;
+        hint.sin_port = htons(54000);
+        inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
 
-    bind(listening, (sockaddr *)&hint, sizeof(hint));
+        //Make sure listening port can be reused after being closed 
+        int flag = 1;  
+        if (-1 == setsockopt(listening, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag))) {  
+            cerr<<("setsockopt fail")<<endl;  
+        }  
 
+        bind(listening, (sockaddr *)&hint, sizeof(hint));
     // Tell Winsock the socket is for listening
-    listen(listening, SOMAXCONN);
-    cerr << "Waiting for Connection...." << endl;
-    // Wait for a connection
-    sockaddr_in client;
-    socklen_t clientSize = sizeof(client);
+            listen(listening, SOMAXCONN);
+        
+            cerr << "Waiting for Connection...." << endl;
+            // Wait for a connection
+            sockaddr_in client;
+            socklen_t clientSize = sizeof(client);
 
-    int clientSocket = accept(listening, (sockaddr *)&client, &clientSize);
+            //Create Client Socket by Accepting incoming request
+            int clientSocket = accept(listening, (sockaddr *)&client, &clientSize);
+            //Start new Thread using connection handler and by passing the client socket
+            cout << "start thread" << endl;
+            std::thread t(connectionHandler,clientSocket,client);
+            cout << "Detatch thread" << endl;
+            t.detach();
+            close(listening);
+    }
+    
+    cout << "ende" << endl;
+    return 0;
+}
 
+void *connectionHandler( int clientSocket, sockaddr_in client){
     char host[NI_MAXHOST];    // Client's remote name
     char service[NI_MAXSERV]; // Service (i.e. port) the client is connect on
 
@@ -79,7 +102,8 @@ int main()
     }
 
     // Close listening socket
-    close(listening);
+    //cout << "close Listening" << endl;
+    //close(listening);
 
     // While loop: accept and echo message back to client
     char buf[4096];
