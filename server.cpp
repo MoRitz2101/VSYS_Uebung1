@@ -23,23 +23,29 @@ using namespace std;
 
 std::vector<std::string> split_string(const std::string &str, const std::string &delimiter);
 std::string convertToString(char *a, int size);
-std::string sendMessage(std::vector<std::string> fromClient);
-std::string listMessages(std::string user);
-std::string deleteMessage(std::string user, std::string uuid);
-std::string readMessage(std::string user, std::string uuid);
+std::string sendMessage(std::vector<std::string> fromClient , std::string pathFromTerminal);
+std::string listMessages(std::string user, std::string pathFromTerminal);
+std::string deleteMessage(std::string user, std::string uuid, std::string pathFromTerminal);
+std::string readMessage(std::string user, std::string uuid, std::string pathFromTerminal);
 std::string getPathfromUUID(std::string path, std::string uuidWanted);
 std::string get_uuid();
 
-void *connectionHandler(int clientSocket, sockaddr_in client);
+void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFromTerminal);
 
 int main(int argc, char *argv[])
 {
-    while (true)
-    {
-          if( argc < 2 ){
+          if( argc < 3 ){
         cerr << "Please enter Port" << endl;
          return -1;
   }
+        if (atoi(argv[1]) == 0){
+        cerr << "No valid Port Number" << endl;
+        return -1;
+          }
+         int port = atoi(argv[1]);
+        std::string pathFromTerminal = argv[2];
+    while (true)
+    {
         // Create a socket
         int listening = socket(AF_INET, SOCK_STREAM, 0);
         if (listening == -1)
@@ -47,11 +53,6 @@ int main(int argc, char *argv[])
             cerr << "Can't create a socket! Quitting" << endl;
             return -1;
         }
-        if (atoi(argv[1]) == 0){
-        cerr << "No valid Port Number" << endl;
-        return -1;
-          }
-         int port = atoi(argv[1]);
         
 
         // Bind the ip address and port to a socket
@@ -79,8 +80,7 @@ int main(int argc, char *argv[])
         //Create Client Socket by Accepting incoming request
         int clientSocket = accept(listening, (sockaddr *)&client, &clientSize);
         //Start new Thread using connection handler and by passing the client socket
-        cout << "start thread" << endl;
-        std::thread t(connectionHandler, clientSocket, client);
+        std::thread t(connectionHandler, clientSocket, client, pathFromTerminal);
         cout << "Detatch thread" << endl;
         t.detach();
         close(listening);
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void *connectionHandler(int clientSocket, sockaddr_in client)
+void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFromTerminal)
 {
     char host[NI_MAXHOST];    // Client's remote name
     char service[NI_MAXSERV]; // Service (i.e. port) the client is connect on
@@ -149,7 +149,7 @@ void *connectionHandler(int clientSocket, sockaddr_in client)
         {
             if (splittedMessage.size() > 5)
             {
-                response = sendMessage(splittedMessage);
+                response = sendMessage(splittedMessage, pathFromTerminal);
                 splittedMessage.clear();
             }
             else
@@ -160,15 +160,15 @@ void *connectionHandler(int clientSocket, sockaddr_in client)
         else if (splittedMessage.at(0) == " READ")
         {
             std::cout << "Into Read" << std::endl;
-            response = readMessage(splittedMessage.at(1), splittedMessage.at(2));
+            response = readMessage(splittedMessage.at(1), splittedMessage.at(2), pathFromTerminal);
         }
         else if (splittedMessage.at(0) == " LIST")
         {
-            response = listMessages(splittedMessage.at(1));
+            response = listMessages(splittedMessage.at(1),pathFromTerminal);
         }
         else if (splittedMessage.at(0) == " DEL")
         {
-            response = deleteMessage(splittedMessage.at(1), splittedMessage.at(2));
+            response = deleteMessage(splittedMessage.at(1), splittedMessage.at(2),pathFromTerminal);
         }
         response = response + "\0";
         bytesReceived = response.size();
@@ -210,14 +210,14 @@ std::string convertToString(char *a, int size)
     return s;
 }
 
-std::string sendMessage(std::vector<std::string> fromClient)
+std::string sendMessage(std::vector<std::string> fromClient , std::string pathFromTerminal)
 {
     std::string Sender = fromClient.at(1);
     std::string Empfaenger = fromClient.at(2);
     std::string Betreff = fromClient.at(3);
     std::string Nachricht = fromClient.at(4);
     std::string uuid = get_uuid();
-    std::string folderPath = "./mail/" + Empfaenger;
+    std::string folderPath = pathFromTerminal + "/" + Empfaenger;
 
     fromClient.clear();
 
@@ -243,9 +243,10 @@ std::string sendMessage(std::vector<std::string> fromClient)
     return "ok\0";
 }
 
-std::string listMessages(std::string user)
+std::string listMessages(std::string user , std::string pathFromTerminal)
 {
-    std::string path = "./mail/" + user;
+    std::string path = pathFromTerminal + "/" + user;
+    cout << path << endl;
     std::string directories = "";
     std::string mailList = "";
     std::string returnString = "";
@@ -285,9 +286,9 @@ std::string listMessages(std::string user)
     return returnString;
 }
 
-std::string deleteMessage(std::string user, std::string uuid)
+std::string deleteMessage(std::string user, std::string uuid, std::string pathFromTerminal)
 {
-    std::string path = "./mail/" + user;
+    std::string path = pathFromTerminal + "/" + user;
 
     std::string fullPath = getPathfromUUID(path, uuid);
     if (fs::remove(fullPath))
@@ -300,9 +301,9 @@ std::string deleteMessage(std::string user, std::string uuid)
     }
 }
 
-std::string readMessage(std::string user, std::string uuid)
+std::string readMessage(std::string user, std::string uuid, std::string pathFromTerminal)
 {
-    std::string path = "./mail/" + user;
+    std::string path = pathFromTerminal + "/" + user;
     std::string fullPath = getPathfromUUID(path, uuid);
     std::string message = "";
 
