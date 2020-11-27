@@ -17,6 +17,7 @@
 #include <bits/stdc++.h>
 #include <filesystem>
 #include <thread>
+#include <mutex>
 namespace fs = std::filesystem;
 #define BUF 1024
 using namespace std;
@@ -29,7 +30,7 @@ std::string deleteMessage(std::string user, std::string uuid, std::string pathFr
 std::string readMessage(std::string user, std::string uuid, std::string pathFromTerminal);
 std::string getPathfromUUID(std::string path, std::string uuidWanted);
 std::string get_uuid();
-
+std::mutex mtx;
 void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFromTerminal);
 
 int main(int argc, char *argv[])
@@ -80,6 +81,8 @@ int main(int argc, char *argv[])
         //Create Client Socket by Accepting incoming request
         int clientSocket = accept(listening, (sockaddr *)&client, &clientSize);
         //Start new Thread using connection handler and by passing the client socket
+        cout << "start thread" << endl;
+        cout << pathFromTerminal << endl;
         std::thread t(connectionHandler, clientSocket, client, pathFromTerminal);
         cout << "Detatch thread" << endl;
         t.detach();
@@ -159,16 +162,22 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
         }
         else if (splittedMessage.at(0) == " READ")
         {
+            mtx.lock();
             std::cout << "Into Read" << std::endl;
             response = readMessage(splittedMessage.at(1), splittedMessage.at(2), pathFromTerminal);
+            mtx.unlock();
         }
         else if (splittedMessage.at(0) == " LIST")
         {
+            mtx.unlock();
             response = listMessages(splittedMessage.at(1),pathFromTerminal);
+            mtx.unlock();
         }
         else if (splittedMessage.at(0) == " DEL")
         {
+            mtx.unlock();
             response = deleteMessage(splittedMessage.at(1), splittedMessage.at(2),pathFromTerminal);
+            mtx.unlock();
         }
         response = response + "\0";
         bytesReceived = response.size();
