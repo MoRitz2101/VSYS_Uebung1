@@ -170,9 +170,6 @@ void *connectionHandler(int clientSocket, sockaddr_in client)
         {
             response = deleteMessage(splittedMessage.at(1), splittedMessage.at(2));
         }
-        else if (splittedMessage.at(0) == " QUIT")
-        {
-        }
         response = response + "\0";
         bytesReceived = response.size();
         send(clientSocket, response.c_str(), bytesReceived, 0);

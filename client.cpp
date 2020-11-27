@@ -85,6 +85,9 @@ int main(int argc, char **argv)
         }
 
         //		Send to server
+        if(userInput.compare("QUIT"))
+            break;
+        
         int sendRes = send(sock, userInput.c_str(), userInput.size() + 1, 0);
         userInput = "";
         if (sendRes == -1)
