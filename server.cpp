@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <thread>
 #include <mutex>
+#include <regex>
 namespace fs = std::filesystem;
 #define BUF 1024
 using namespace std;
@@ -35,44 +36,50 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
 
 int main(int argc, char *argv[])
 {
-          if( argc < 3 ){
-        cerr << "Please enter Port" << endl;
-         return -1;
-  }
-        if (atoi(argv[1]) == 0){
-        cerr << "No valid Port Number" << endl;
+    if( argc < 3 ){
+        cerr << "Please enter Port Number and Path" << endl;
         return -1;
-          }
-         int port = atoi(argv[1]);
-        std::string pathFromTerminal = argv[2];
-    while (true)
+    }
+    if (atoi(argv[1]) < 1024 ||atoi(argv[1])>49151){
+        cerr << "No valid Port Number" << endl;
+        cerr << "Has to be in range 1024-49151" << endl;
+        return -1;
+    }
+    int port = atoi(argv[1]);
+    if (!std::regex_match(argv[2],std::regex("^[^ \\/]*"))){
+        cerr << "Invalid Pathname" << endl;
+        cerr << "Please enter the name of your storage Directory without the /" << endl;
+        return -1;
+    }
+    std::string pathFromTerminal = argv[2];
+    
+    // Create a socket
+    int listening = socket(AF_INET, SOCK_STREAM, 0);
+    if (listening == -1)
     {
-        // Create a socket
-        int listening = socket(AF_INET, SOCK_STREAM, 0);
-        if (listening == -1)
-        {
-            cerr << "Can't create a socket! Quitting" << endl;
-            return -1;
-        }
-        
+        cerr << "Can't create a socket! Quitting" << endl;
+        return -1;
+    }
+    
 
-        // Bind the ip address and port to a socket
-        sockaddr_in hint;
-        hint.sin_family = AF_INET;
-        hint.sin_port = htons(port);
-        inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
+    // Bind the ip address and port to a socket
+    sockaddr_in hint;
+    hint.sin_family = AF_INET;
+    hint.sin_port = htons(port);
+    inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
 
-        //Make sure listening port can be reused after being closed
-        int flag = 1;
-        if (-1 == setsockopt(listening, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)))
-        {
-            cerr << ("setsockopt fail") << endl;
-        }
+    //Make sure listening port can be reused after being closed
+    int flag = 1;
+    if (-1 == setsockopt(listening, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)))
+    {
+        cerr << ("setsockopt fail") << endl;
+    }
 
-        bind(listening, (sockaddr *)&hint, sizeof(hint));
-        // Tell Winsock the socket is for listening
-        listen(listening, SOMAXCONN);
+    bind(listening, (sockaddr *)&hint, sizeof(hint));
+    // Tell Winsock the socket is for listening
+    listen(listening, SOMAXCONN);
 
+    while (true)    {
         cerr << "Waiting for Connection...." << endl;
         // Wait for a connection
         sockaddr_in client;
@@ -86,7 +93,7 @@ int main(int argc, char *argv[])
         std::thread t(connectionHandler, clientSocket, client, pathFromTerminal);
         cout << "Detatch thread" << endl;
         t.detach();
-        close(listening);
+        //close(listening);
     }
 
     cout << "ende" << endl;
