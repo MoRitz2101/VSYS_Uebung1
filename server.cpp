@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <thread>
 #include <mutex>
+#include <regex>
 namespace fs = std::filesystem;
 #define BUF 1024
 using namespace std;
@@ -35,16 +36,21 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
 
 int main(int argc, char *argv[])
 {
-          if( argc < 3 ){
-        cerr << "Please enter Port" << endl;
-         return -1;
-  }
-        if (atoi(argv[1]) == 0){
-        cerr << "No valid Port Number" << endl;
+    if( argc < 3 ){
+        cerr << "Please enter Port Number and Path" << endl;
         return -1;
-          }
-         int port = atoi(argv[1]);
-        std::string pathFromTerminal = argv[2];
+    }
+    if (atoi(argv[1]) < 1024 ||atoi(argv[1])>49151){
+        cerr << "No valid Port Number" << endl;
+        cerr << "Has to be in range 1024-49151" << endl;
+        return -1;
+    }
+    int port = atoi(argv[1]);
+    if (!std::regex_match(argv[2],std::regex("^[^\\/][^ ]*"))){
+        cerr << "Invalid Path" << endl;
+        return -1;
+    }
+    std::string pathFromTerminal = argv[2];
     while (true)
     {
         // Create a socket
