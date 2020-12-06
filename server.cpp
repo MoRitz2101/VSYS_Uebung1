@@ -36,18 +36,21 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
 
 int main(int argc, char *argv[])
 {
+    // Validate amount of Parameters
     if( argc < 3 ){
-        cerr << "Please enter Port Number and Path" << endl;
+        cerr << "Please enter Port Number and Directory Name" << endl;
         return -1;
     }
+    //Validate Port Number
     if (atoi(argv[1]) < 1024 ||atoi(argv[1])>49151){
         cerr << "No valid Port Number" << endl;
         cerr << "Has to be in range 1024-49151" << endl;
         return -1;
     }
     int port = atoi(argv[1]);
+    //Validate Directory Name
     if (!std::regex_match(argv[2],std::regex("^[^ \\/]*"))){
-        cerr << "Invalid Pathname" << endl;
+        cerr << "Invalid Directory Name" << endl;
         cerr << "Please enter the name of your storage Directory without the /" << endl;
         return -1;
     }
@@ -90,11 +93,9 @@ int main(int argc, char *argv[])
         //Start new Thread using connection handler and by passing the client socket
         cout << pathFromTerminal << endl;
         std::thread t(connectionHandler, clientSocket, client, pathFromTerminal);
+        //detatch Thread so its not joinable
         t.detach();
-        //close(listening);
     }
-
-    cout << "ende" << endl;
     return 0;
 }
 
@@ -121,10 +122,6 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
         strcpy(welcome, "Welcome to Server, Please enter your command:\n");
         send(clientSocket, welcome, strlen(welcome), 0);
     }
-
-    // Close listening socket
-    //cout << "close Listening" << endl;
-    //close(listening);
 
     // While loop: accept and echo message back to client
     char buf[4096];
@@ -153,12 +150,15 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
         std::vector<std::string> splittedMessage = split_string(bufferAsString, "\n");
         std::string response = "failedTofindCommand";
         buf[0] = 0;
+        //Use mtx.lock/unlock to prevent Race Condition
         if (splittedMessage.at(0) == "SEND")
         {
             if (splittedMessage.size() > 5)
             {
+                mtx.lock();
                 response = sendMessage(splittedMessage, pathFromTerminal);
                 splittedMessage.clear();
+                mtx.unlock();
             }
             else
             {
@@ -173,13 +173,13 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
         }
         else if (splittedMessage.at(0) == "LIST")
         {
-            mtx.unlock();
+            mtx.lock();
             response = listMessages(splittedMessage.at(1),pathFromTerminal);
             mtx.unlock();
         }
         else if (splittedMessage.at(0) == "DEL")
         {
-            mtx.unlock();
+            mtx.lock();
             response = deleteMessage(splittedMessage.at(1), splittedMessage.at(2),pathFromTerminal);
             mtx.unlock();
         }
