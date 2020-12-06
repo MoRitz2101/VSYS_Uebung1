@@ -31,6 +31,11 @@ int main(int argc, char **argv)
         cerr << "No valid Port Number" << endl;
         return -1;
     }
+    if (atoi(argv[1]) < 1024 ||atoi(argv[1])>49151){
+        cerr << "No valid Port Number" << endl;
+        cerr << "Has to be in range 1024-49151" << endl;
+        return -1;
+    }
     int port = atoi(argv[1]);
     string ipAddress = argv[2];
 

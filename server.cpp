@@ -88,10 +88,8 @@ int main(int argc, char *argv[])
         //Create Client Socket by Accepting incoming request
         int clientSocket = accept(listening, (sockaddr *)&client, &clientSize);
         //Start new Thread using connection handler and by passing the client socket
-        cout << "start thread" << endl;
         cout << pathFromTerminal << endl;
         std::thread t(connectionHandler, clientSocket, client, pathFromTerminal);
-        cout << "Detatch thread" << endl;
         t.detach();
         //close(listening);
     }
@@ -110,7 +108,7 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
 
     if (getnameinfo((sockaddr *)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)
     {
-        //cout << host << " connected on port " << port << endl;
+        cout << host << " connected "<< endl;
         char welcome[50];
         strcpy(welcome, "Welcome to Server, Please enter your command:\n");
         send(clientSocket, welcome, strlen(welcome), 0);
@@ -118,7 +116,7 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
     else
     {
         inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
-        // cout << host << " connected on port " << port << endl;
+         cout << host << " connected " << endl;
         char welcome[50];
         strcpy(welcome, "Welcome to Server, Please enter your command:\n");
         send(clientSocket, welcome, strlen(welcome), 0);
@@ -155,7 +153,7 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
         std::vector<std::string> splittedMessage = split_string(bufferAsString, "\n");
         std::string response = "failedTofindCommand";
         buf[0] = 0;
-        if (splittedMessage.at(0) == " SEND")
+        if (splittedMessage.at(0) == "SEND")
         {
             if (splittedMessage.size() > 5)
             {
@@ -167,20 +165,19 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
                 response = "failed\n";
             }
         }
-        else if (splittedMessage.at(0) == " READ")
+        else if (splittedMessage.at(0) == "READ")
         {
             mtx.lock();
-            std::cout << "Into Read" << std::endl;
             response = readMessage(splittedMessage.at(1), splittedMessage.at(2), pathFromTerminal);
             mtx.unlock();
         }
-        else if (splittedMessage.at(0) == " LIST")
+        else if (splittedMessage.at(0) == "LIST")
         {
             mtx.unlock();
             response = listMessages(splittedMessage.at(1),pathFromTerminal);
             mtx.unlock();
         }
-        else if (splittedMessage.at(0) == " DEL")
+        else if (splittedMessage.at(0) == "DEL")
         {
             mtx.unlock();
             response = deleteMessage(splittedMessage.at(1), splittedMessage.at(2),pathFromTerminal);
@@ -218,7 +215,7 @@ std::vector<std::string> split_string(const std::string &str,
 std::string convertToString(char *a, int size)
 {
     int i;
-    std::string s = " ";
+    std::string s = "";
     for (i = 0; i < size; i++)
     {
         s = s + a[i];
@@ -268,7 +265,6 @@ std::string sendMessage(std::vector<std::string> fromClient , std::string pathFr
 std::string listMessages(std::string user , std::string pathFromTerminal)
 {
     std::string path = "./" + pathFromTerminal + "/" + user;
-    cout << path << endl;
     std::string directories = "";
     std::string mailList = "";
     std::string returnString = "";
@@ -328,14 +324,19 @@ std::string readMessage(std::string user, std::string uuid, std::string pathFrom
     std::string path = "./" + pathFromTerminal + "/" + user;
     std::string fullPath = getPathfromUUID(path, uuid);
     std::string message = "";
-
+    int counter = 0;
     std::ifstream file(fullPath);
     std::string str;
     while (std::getline(file, str))
     {
         message = message + str + "\n";
+        counter ++;
     }
+    if(counter>0)
     return message;
+    else{
+        return "failed \n";
+    }
 }
 
 std::string getPathfromUUID(std::string path, std::string uuidWanted)
