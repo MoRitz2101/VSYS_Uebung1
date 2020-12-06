@@ -51,34 +51,34 @@ int main(int argc, char *argv[])
         return -1;
     }
     std::string pathFromTerminal = argv[2];
-    while (true)
+    
+    // Create a socket
+    int listening = socket(AF_INET, SOCK_STREAM, 0);
+    if (listening == -1)
     {
-        // Create a socket
-        int listening = socket(AF_INET, SOCK_STREAM, 0);
-        if (listening == -1)
-        {
-            cerr << "Can't create a socket! Quitting" << endl;
-            return -1;
-        }
-        
+        cerr << "Can't create a socket! Quitting" << endl;
+        return -1;
+    }
+    
 
-        // Bind the ip address and port to a socket
-        sockaddr_in hint;
-        hint.sin_family = AF_INET;
-        hint.sin_port = htons(port);
-        inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
+    // Bind the ip address and port to a socket
+    sockaddr_in hint;
+    hint.sin_family = AF_INET;
+    hint.sin_port = htons(port);
+    inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
 
-        //Make sure listening port can be reused after being closed
-        int flag = 1;
-        if (-1 == setsockopt(listening, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)))
-        {
-            cerr << ("setsockopt fail") << endl;
-        }
+    //Make sure listening port can be reused after being closed
+    int flag = 1;
+    if (-1 == setsockopt(listening, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)))
+    {
+        cerr << ("setsockopt fail") << endl;
+    }
 
-        bind(listening, (sockaddr *)&hint, sizeof(hint));
-        // Tell Winsock the socket is for listening
-        listen(listening, SOMAXCONN);
+    bind(listening, (sockaddr *)&hint, sizeof(hint));
+    // Tell Winsock the socket is for listening
+    listen(listening, SOMAXCONN);
 
+    while (true)    {
         cerr << "Waiting for Connection...." << endl;
         // Wait for a connection
         sockaddr_in client;
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
         std::thread t(connectionHandler, clientSocket, client, pathFromTerminal);
         cout << "Detatch thread" << endl;
         t.detach();
-        close(listening);
+        //close(listening);
     }
 
     cout << "ende" << endl;
