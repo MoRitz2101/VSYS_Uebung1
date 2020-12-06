@@ -238,7 +238,9 @@ std::string sendMessage(std::vector<std::string> fromClient , std::string pathFr
     {
         return "failed\0";
     }
-    mkdir(folderPath.c_str(), 0777);
+    std::filesystem::create_directories(folderPath);
+
+      //  mkdir(folderPath.c_str(), 0777);
 
     std::string fullpath = folderPath + "/" + Betreff + "|" + uuid + ".txt";
 
@@ -258,7 +260,7 @@ std::string sendMessage(std::vector<std::string> fromClient , std::string pathFr
 
 std::string listMessages(std::string user , std::string pathFromTerminal)
 {
-    std::string path = pathFromTerminal + "/" + user;
+    std::string path = "./" + pathFromTerminal + "/" + user;
     cout << path << endl;
     std::string directories = "";
     std::string mailList = "";
@@ -301,7 +303,7 @@ std::string listMessages(std::string user , std::string pathFromTerminal)
 
 std::string deleteMessage(std::string user, std::string uuid, std::string pathFromTerminal)
 {
-    std::string path = pathFromTerminal + "/" + user;
+    std::string path = "./" + pathFromTerminal + "/" + user;
 
     std::string fullPath = getPathfromUUID(path, uuid);
     if (fs::remove(fullPath))
@@ -316,7 +318,7 @@ std::string deleteMessage(std::string user, std::string uuid, std::string pathFr
 
 std::string readMessage(std::string user, std::string uuid, std::string pathFromTerminal)
 {
-    std::string path = pathFromTerminal + "/" + user;
+    std::string path = "./" + pathFromTerminal + "/" + user;
     std::string fullPath = getPathfromUUID(path, uuid);
     std::string message = "";
 
