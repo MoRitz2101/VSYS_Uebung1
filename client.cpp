@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <string>
+#include <regex>
 
 using namespace std;
 
@@ -37,6 +38,13 @@ int main(int argc, char **argv)
         return -1;
     }
     int port = atoi(argv[1]);
+
+    //IP Address Validation
+    if (!std::regex_match(argv[2],std::regex("(\b([01]?[0-9][0-9]?|2[0-4][0-9]|25[0-5])\\.\b([01]?[0-9][0-9]?|2[0-4][0-9]|25[0-5])\\.\b([01]?[0-9][0-9]?|2[0-4][0-9]|25[0-5])\\.\b([01]?[0-9][0-9]?|2[0-4][0-9]|25[0-5])|localhost)"))){
+        cerr << "Invalid IP Address" << endl;
+        cerr << "Please enter a valid IP Adress or localhost" << endl;
+        return -1;
+    }
     string ipAddress = argv[2];
 
     sockaddr_in hint;
