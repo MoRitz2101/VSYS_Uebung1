@@ -224,7 +224,11 @@ std::string sendMessage(std::vector<std::string> fromClient , std::string pathFr
     std::string Sender = fromClient.at(1);
     std::string Empfaenger = fromClient.at(2);
     std::string Betreff = fromClient.at(3);
-    std::string Nachricht = fromClient.at(4);
+    
+    std::string Nachricht= "";
+    for(int i = 4; i < (int)(fromClient.size()-1); i++){
+        Nachricht = Nachricht + fromClient.at(i) + "\n";
+    }
     std::string uuid = get_uuid();
     std::string folderPath = pathFromTerminal + "/" + Empfaenger;
 
@@ -247,7 +251,7 @@ std::string sendMessage(std::vector<std::string> fromClient , std::string pathFr
     fs << ("Sender: " + Sender + "\n").c_str();
     fs << ("Empfaenger: " + Empfaenger + "\n").c_str();
     fs << ("Betreff: " + Betreff + "\n").c_str();
-    fs << ("Message: " + Nachricht).c_str();
+    fs << ("Message: \n" + Nachricht).c_str();
     fs.close();
     return "ok\0";
 }
