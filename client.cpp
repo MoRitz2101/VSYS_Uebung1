@@ -63,6 +63,7 @@ int main(int argc, char **argv)
     }
     do
     {
+    
         //		Enter lines of text
         cout << "Enter your command:> ";
         userInput = "";
@@ -102,6 +103,11 @@ int main(int argc, char **argv)
         if (bytesReceived == -1)
         {
             cout << "There was an error getting response from server\r\n";
+        }
+        if (bytesReceived == 0)
+        {
+            cout << "Server Disconnected\r\n";
+            break;
         }
         else
         {
