@@ -46,8 +46,9 @@ int main(int argc, char *argv[])
         return -1;
     }
     int port = atoi(argv[1]);
-    if (!std::regex_match(argv[2],std::regex("^[^\\/][^ ]*"))){
-        cerr << "Invalid Path" << endl;
+    if (!std::regex_match(argv[2],std::regex("^[^ \\/]*"))){
+        cerr << "Invalid Pathname" << endl;
+        cerr << "Please enter the name of your storage Directory without the /" << endl;
         return -1;
     }
     std::string pathFromTerminal = argv[2];
