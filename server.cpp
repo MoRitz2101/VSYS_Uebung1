@@ -19,43 +19,50 @@
 #include <thread>
 #include <mutex>
 #include <regex>
+#include <ctype.h>
 namespace fs = std::filesystem;
 #define BUF 1024
 using namespace std;
 
-std::vector<std::string> split_string(const std::string &str, const std::string &delimiter);
-std::string convertToString(char *a, int size);
-std::string sendMessage(std::vector<std::string> fromClient , std::string pathFromTerminal);
-std::string listMessages(std::string user, std::string pathFromTerminal);
-std::string deleteMessage(std::string user, std::string uuid, std::string pathFromTerminal);
-std::string readMessage(std::string user, std::string uuid, std::string pathFromTerminal);
-std::string getPathfromUUID(std::string path, std::string uuidWanted);
-std::string get_uuid();
-std::mutex mtx;
-void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFromTerminal);
+vector<string> split_string(const string &str, const string &delimiter);
+string convertToString(char *a, int size);
+string sendMessage(vector<string> fromClient, string pathFromTerminal);
+string listMessages(string user, string pathFromTerminal);
+string deleteMessage(string user, string uuid, string pathFromTerminal);
+string readMessage(string user, string uuid, string pathFromTerminal);
+string getPathfromUUID(string path, string uuidWanted);
+string get_uuid();
+string encrypt(string text);
+string decrypt(string text);
+mutex mtx;
+
+void *connectionHandler(int clientSocket, sockaddr_in client, string pathFromTerminal);
 
 int main(int argc, char *argv[])
 {
     // Validate amount of Parameters
-    if( argc < 3 ){
+    if (argc < 3)
+    {
         cerr << "Please enter Port Number and Directory Name" << endl;
         return -1;
     }
     //Validate Port Number
-    if (atoi(argv[1]) < 1024 ||atoi(argv[1])>49151){
+    if (atoi(argv[1]) < 1024 || atoi(argv[1]) > 49151)
+    {
         cerr << "No valid Port Number" << endl;
         cerr << "Has to be in range 1024-49151" << endl;
         return -1;
     }
     int port = atoi(argv[1]);
     //Validate Directory Name
-    if (!std::regex_match(argv[2],std::regex("^[^ \\/]*"))){
+    if (!regex_match(argv[2], regex("^[^ \\/]*")))
+    {
         cerr << "Invalid Directory Name" << endl;
         cerr << "Please enter the name of your storage Directory without the /" << endl;
         return -1;
     }
-    std::string pathFromTerminal = argv[2];
-    
+    string pathFromTerminal = argv[2];
+
     // Create a socket
     int listening = socket(AF_INET, SOCK_STREAM, 0);
     if (listening == -1)
@@ -63,7 +70,6 @@ int main(int argc, char *argv[])
         cerr << "Can't create a socket! Quitting" << endl;
         return -1;
     }
-    
 
     // Bind the ip address and port to a socket
     sockaddr_in hint;
@@ -81,9 +87,10 @@ int main(int argc, char *argv[])
     bind(listening, (sockaddr *)&hint, sizeof(hint));
     // Tell Winsock the socket is for listening
     listen(listening, SOMAXCONN);
+    cerr << "Waiting for Connection...." << endl;
+    while (true)
+    {
 
-    while (true)    {
-        cerr << "Waiting for Connection...." << endl;
         // Wait for a connection
         sockaddr_in client;
         socklen_t clientSize = sizeof(client);
@@ -91,15 +98,14 @@ int main(int argc, char *argv[])
         //Create Client Socket by Accepting incoming request
         int clientSocket = accept(listening, (sockaddr *)&client, &clientSize);
         //Start new Thread using connection handler and by passing the client socket
-        cout << pathFromTerminal << endl;
-        std::thread t(connectionHandler, clientSocket, client, pathFromTerminal);
+        thread t(connectionHandler, clientSocket, client, pathFromTerminal);
         //detatch Thread so its not joinable
         t.detach();
     }
     return 0;
 }
 
-void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFromTerminal)
+void *connectionHandler(int clientSocket, sockaddr_in client, string pathFromTerminal)
 {
     char host[NI_MAXHOST];    // Client's remote name
     char service[NI_MAXSERV]; // Service (i.e. port) the client is connect on
@@ -109,15 +115,15 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
 
     if (getnameinfo((sockaddr *)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)
     {
-        cout << host << " connected "<< endl;
+        cout << host << " connected " << endl;
         char welcome[50];
-        strcpy(welcome, "Welcome to Server, Please enter your command:\n");
+        strcpy(welcome, encrypt("Welcome to Server, Please enter your command:\n").c_str());
         send(clientSocket, welcome, strlen(welcome), 0);
     }
     else
     {
         inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
-         cout << host << " connected " << endl;
+        cout << host << " connected " << endl;
         char welcome[50];
         strcpy(welcome, "Welcome to Server, Please enter your command:\n");
         send(clientSocket, welcome, strlen(welcome), 0);
@@ -141,14 +147,19 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
         if (bytesReceived == 0)
         {
             cout << "Client disconnected " << endl;
+            cout << "Waiting for Connection...." << endl;
             break;
         }
 
         buf[bytesReceived] = '\0';
-
-        std::string bufferAsString = convertToString(buf, bytesReceived);
-        std::vector<std::string> splittedMessage = split_string(bufferAsString, "\n");
-        std::string response = "failedTofindCommand";
+    
+        string bufferAsString = convertToString(buf, bytesReceived);
+        //cout<<bufferAsString<<endl;
+        bufferAsString = decrypt(bufferAsString);
+        //split Message to Vector by \n
+        vector<string> splittedMessage = split_string(bufferAsString, "\n");
+        string response = "failedTofindCommand";
+        //clear BUffer
         buf[0] = 0;
         //Use mtx.lock/unlock to prevent Race Condition
         if (splittedMessage.at(0) == "SEND")
@@ -174,16 +185,17 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
         else if (splittedMessage.at(0) == "LIST")
         {
             mtx.lock();
-            response = listMessages(splittedMessage.at(1),pathFromTerminal);
+            response = listMessages(splittedMessage.at(1), pathFromTerminal);
             mtx.unlock();
         }
         else if (splittedMessage.at(0) == "DEL")
         {
             mtx.lock();
-            response = deleteMessage(splittedMessage.at(1), splittedMessage.at(2),pathFromTerminal);
+            response = deleteMessage(splittedMessage.at(1), splittedMessage.at(2), pathFromTerminal);
             mtx.unlock();
         }
         response = response + "\0";
+        response = encrypt(response);
         bytesReceived = response.size();
         send(clientSocket, response.c_str(), bytesReceived, 0);
     }
@@ -194,14 +206,14 @@ void *connectionHandler(int clientSocket, sockaddr_in client, std::string pathFr
     return 0;
 }
 
-std::vector<std::string> split_string(const std::string &str,
-                                      const std::string &delimiter)
+vector<string> split_string(const string &str,
+                            const string &delimiter)
 {
-    std::vector<std::string> strings;
+    vector<string> strings;
     strings.clear();
-    std::string::size_type pos = 0;
-    std::string::size_type prev = 0;
-    while ((pos = str.find(delimiter, prev)) != std::string::npos)
+    string::size_type pos = 0;
+    string::size_type prev = 0;
+    while ((pos = str.find(delimiter, prev)) != string::npos)
     {
         strings.push_back(str.substr(prev, pos - prev));
         prev = pos + delimiter.size();
@@ -212,10 +224,10 @@ std::vector<std::string> split_string(const std::string &str,
     return strings;
 }
 
-std::string convertToString(char *a, int size)
+string convertToString(char *a, int size)
 {
     int i;
-    std::string s = "";
+    string s = "";
     for (i = 0; i < size; i++)
     {
         s = s + a[i];
@@ -223,18 +235,20 @@ std::string convertToString(char *a, int size)
     return s;
 }
 
-std::string sendMessage(std::vector<std::string> fromClient , std::string pathFromTerminal)
+string sendMessage(vector<string> fromClient, string pathFromTerminal)
 {
-    std::string Sender = fromClient.at(1);
-    std::string Empfaenger = fromClient.at(2);
-    std::string Betreff = fromClient.at(3);
-    
-    std::string Nachricht= "";
-    for(int i = 4; i < (int)(fromClient.size()-1); i++){
+    string Sender = fromClient.at(1);
+    string Empfaenger = fromClient.at(2);
+    string Betreff = fromClient.at(3);
+
+//alle Zeilen in einen Nachrichten String speichern
+    string Nachricht = "";
+    for (int i = 4; i < (int)(fromClient.size() - 1); i++)
+    {
         Nachricht = Nachricht + fromClient.at(i) + "\n";
     }
-    std::string uuid = get_uuid();
-    std::string folderPath = pathFromTerminal + "/" + Empfaenger;
+    string uuid = get_uuid();
+    string folderPath = pathFromTerminal + "/" + Empfaenger;
 
     fromClient.clear();
 
@@ -242,13 +256,13 @@ std::string sendMessage(std::vector<std::string> fromClient , std::string pathFr
     {
         return "failed\0";
     }
-    std::filesystem::create_directories(folderPath);
+    //Folder erstellen wenn kein Folder besteht
+    filesystem::create_directories(folderPath);
 
-      //  mkdir(folderPath.c_str(), 0777);
+    string fullpath = folderPath + "/" + Betreff + "|" + uuid + ".txt";
 
-    std::string fullpath = folderPath + "/" + Betreff + "|" + uuid + ".txt";
-
-    std::ofstream fs(fullpath);
+    //Nachricht in Dokument schreiben
+    ofstream fs(fullpath);
 
     if (!fs)
     {
@@ -262,35 +276,36 @@ std::string sendMessage(std::vector<std::string> fromClient , std::string pathFr
     return "ok\0";
 }
 
-std::string listMessages(std::string user , std::string pathFromTerminal)
+string listMessages(string user, string pathFromTerminal)
 {
-    std::string path = "./" + pathFromTerminal + "/" + user;
-    std::string directories = "";
-    std::string mailList = "";
-    std::string returnString = "";
+    string path = "./" + pathFromTerminal + "/" + user;
+    string directories = "";
+    string mailList = "";
+    string returnString = "";
     int counter = 0;
-
+    //Teste ob der Pfad existiert
     DIR *dir = opendir(path.c_str());
     if (dir)
     {
         closedir(dir);
+        //Alle Betreffs in einem String speichern und zurück geben
         for (const auto &entry : fs::directory_iterator(path))
         {
             directories = entry.path();
             int index = directories.find_last_of("/");
-            std::string file = directories.substr(index + 1, directories.size());
+            string file = directories.substr(index + 1, directories.size());
 
             int fileindex = file.find_first_of("|");
-            std::string fileName = file.substr(0, fileindex);
+            string fileName = file.substr(0, fileindex);
             int endindex = file.find_last_of(".");
-            std::string uuid = file.substr(fileindex + 1, endindex - fileindex - 1);
+            string uuid = file.substr(fileindex + 1, endindex - fileindex - 1);
 
             mailList = mailList + " Betreff: " + fileName + " UUID: " + uuid + "\n";
 
             counter++;
         }
         mailList = mailList + "\0";
-        returnString = " Anzahl der Mails: " + std::to_string(counter) + "\n" + mailList + "\0";
+        returnString = " Anzahl der Mails: " + to_string(counter) + "\n" + mailList + "\0";
     }
     else if (ENOENT == errno)
     {
@@ -304,11 +319,11 @@ std::string listMessages(std::string user , std::string pathFromTerminal)
     return returnString;
 }
 
-std::string deleteMessage(std::string user, std::string uuid, std::string pathFromTerminal)
+string deleteMessage(string user, string uuid, string pathFromTerminal)
 {
-    std::string path = "./" + pathFromTerminal + "/" + user;
+    string path = "./" + pathFromTerminal + "/" + user;
 
-    std::string fullPath = getPathfromUUID(path, uuid);
+    string fullPath = getPathfromUUID(path, uuid);
     if (fs::remove(fullPath))
     {
         return "ok\0";
@@ -319,42 +334,46 @@ std::string deleteMessage(std::string user, std::string uuid, std::string pathFr
     }
 }
 
-std::string readMessage(std::string user, std::string uuid, std::string pathFromTerminal)
+string readMessage(string user, string uuid, string pathFromTerminal)
 {
-    std::string path = "./" + pathFromTerminal + "/" + user;
-    std::string fullPath = getPathfromUUID(path, uuid);
-    std::string message = "";
+    string path = "./" + pathFromTerminal + "/" + user;
+    string fullPath = getPathfromUUID(path, uuid);
+    string message = "";
     int counter = 0;
-    std::ifstream file(fullPath);
-    std::string str;
-    while (std::getline(file, str))
+    ifstream file(fullPath);
+    string str;
+    //Alle Zeilen aus Dokument auslesen
+    while (getline(file, str))
     {
         message = message + str + "\n";
-        counter ++;
+        counter++;
     }
-    if(counter>0)
-    return message;
-    else{
+    if (counter > 0)
+        return message;
+    else
+    {
         return "failed \n";
     }
 }
 
-std::string getPathfromUUID(std::string path, std::string uuidWanted)
+string getPathfromUUID(string path, string uuidWanted)
 {
-    std::string directorie = "";
+    string directorie = "";
     DIR *dir = opendir(path.c_str());
+    //Testen ob Pfad existiert
     if (dir)
     {
         closedir(dir);
+        //Pfad bekommen wenn nur der User angegeben wird und der Pfad
         for (const auto &entry : fs::directory_iterator(path))
         {
             directorie = entry.path();
             int index = directorie.find_last_of("/");
-            std::string file = directorie.substr(index + 1, directorie.size());
+            string file = directorie.substr(index + 1, directorie.size());
             int fileindex = file.find_first_of("|");
-            std::string fileName = file.substr(0, fileindex);
+            string fileName = file.substr(0, fileindex);
             int endindex = file.find_last_of(".");
-            std::string uuid = file.substr(fileindex + 1, endindex - fileindex - 1);
+            string uuid = file.substr(fileindex + 1, endindex - fileindex - 1);
 
             if (uuid.compare(uuidWanted) == 0)
             {
@@ -362,8 +381,9 @@ std::string getPathfromUUID(std::string path, std::string uuidWanted)
             }
         }
     }
-    return std::string("error");
+    return string("error");
 }
+//UUID erstellen
 string get_uuid()
 {
     static random_device dev;
@@ -383,4 +403,48 @@ string get_uuid()
         res += v[dist(rng)];
     }
     return res;
+}
+string encrypt(string text)
+{
+    int s = 4;
+    string result = "";
+    //traverse text
+    for (int i = 0; i < (int)text.length(); i++)
+    {
+        //apply transformation to each character
+        //Encrypt Uppercase letters
+        if (!(text[i] > 65 && text[i] < 90) || !(text[i] > 97 && text[i] < 122))
+        {
+            result += text[i];
+        }
+        else if (isupper(text[i]))
+            result += char(int(text[i] + s - 65) % 26 + 65);
+        //Encrypt Lowercase letters
+        else if (islower(text[i]))
+            result += char(int(text[i] + s - 97) % 26 + 97);
+    }
+    //Return the resulting string
+    return result;
+}
+string decrypt(string text)
+{
+    int s = 26 - 4;
+    string result = "";
+    //traverse text
+    for (int i = 0; i < (int)text.length(); i++)
+    {
+        //apply transformation to each character
+        //Encrypt Uppercase letters
+        if (!(text[i] > 65 && text[i] < 90) || !(text[i] > 97 && text[i] < 122))
+        {
+            result += text[i];
+        }
+        else if (isupper(text[i]))
+            result += char(int(text[i] + s - 65) % 26 + 65);
+        //Encrypt Lowercase letters
+        else if (islower(text[i]))
+            result += char(int(text[i] + s - 97) % 26 + 97);
+    }
+    //Return the resulting string
+    return result;
 }
