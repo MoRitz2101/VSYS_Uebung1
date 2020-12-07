@@ -49,7 +49,7 @@ int main(int argc, char **argv)
         return -1;
     }
     string ipAddress = argv[2];
-    
+
     //Socket initialisieren
     sockaddr_in hint;
     hint.sin_family = AF_INET;
@@ -107,6 +107,7 @@ int main(int argc, char **argv)
             break;
 
         userInput = encrypt(userInput);
+
         //	Send to server
         int sendRes = send(sock, userInput.c_str(), userInput.size() + 1, 0);
         userInput = "";
@@ -147,20 +148,19 @@ string encrypt(string text)
     string result = "";
 
     // traverse text
-    for (int i = 0; i < (int)text.length(); i++)
+    for (int i = 0; i <= (int)text.length(); i++)
     {
         // apply transformation to each character
-        // Encrypt Uppercase letters
-        if (!(text[i] > 65 && text[i] < 90) || !(text[i] > 97 && text[i] < 122))
-        {
-            result += text[i];
-        }
-        else if (isupper(text[i]))
+       
+           if (isupper(text[i]))
             result += char(int(text[i] + s - 65) % 26 + 65);
 
         // Encrypt Lowercase letters
         else if (islower(text[i]))
             result += char(int(text[i] + s - 97) % 26 + 97);
+            
+        else
+                result += text[i];
     }
 
     // Return the resulting string
@@ -172,19 +172,18 @@ string decrypt(string text)
     int s = 26 - 4;
     string result = "";
     //traverse text
-    for (int i = 0; i < (int)text.length(); i++)
+    for (int i = 0; i <= (int)text.length(); i++)
     {
-        //apply transformation to each character
-        //Encrypt Uppercase letters
-        if (!(text[i] > 65 && text[i] < 90) || !(text[i] > 97 && text[i] < 122))
-        {
-            result += text[i];
-        }
-        else if (isupper(text[i]))
+        // apply transformation to each character
+          if (isupper(text[i]))
             result += char(int(text[i] + s - 65) % 26 + 65);
-        //Encrypt Lowercase letters
+
+        // Encrypt Lowercase letters
         else if (islower(text[i]))
             result += char(int(text[i] + s - 97) % 26 + 97);
+            
+        else
+                result += text[i];
     }
     //Return the resulting string
     return result;

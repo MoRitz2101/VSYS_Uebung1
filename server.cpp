@@ -152,10 +152,11 @@ void *connectionHandler(int clientSocket, sockaddr_in client, string pathFromTer
         }
 
         buf[bytesReceived] = '\0';
-    
+
         string bufferAsString = convertToString(buf, bytesReceived);
-        //cout<<bufferAsString<<endl;
+        // cout<<bufferAsString<<endl;
         bufferAsString = decrypt(bufferAsString);
+        // cout<<bufferAsString<<endl;
         //split Message to Vector by \n
         vector<string> splittedMessage = split_string(bufferAsString, "\n");
         string response = "failedTofindCommand";
@@ -241,7 +242,7 @@ string sendMessage(vector<string> fromClient, string pathFromTerminal)
     string Empfaenger = fromClient.at(2);
     string Betreff = fromClient.at(3);
 
-//alle Zeilen in einen Nachrichten String speichern
+    //alle Zeilen in einen Nachrichten String speichern
     string Nachricht = "";
     for (int i = 4; i < (int)(fromClient.size() - 1); i++)
     {
@@ -324,6 +325,7 @@ string deleteMessage(string user, string uuid, string pathFromTerminal)
     string path = "./" + pathFromTerminal + "/" + user;
 
     string fullPath = getPathfromUUID(path, uuid);
+    //trys to remove file
     if (fs::remove(fullPath))
     {
         return "ok\0";
@@ -409,19 +411,19 @@ string encrypt(string text)
     int s = 4;
     string result = "";
     //traverse text
-    for (int i = 0; i < (int)text.length(); i++)
+    for (int i = 0; i <= (int)text.length(); i++)
     {
-        //apply transformation to each character
-        //Encrypt Uppercase letters
-        if (!(text[i] > 65 && text[i] < 90) || !(text[i] > 97 && text[i] < 122))
-        {
-            result += text[i];
-        }
-        else if (isupper(text[i]))
+        // apply transformation to each character
+
+        if (isupper(text[i]))
             result += char(int(text[i] + s - 65) % 26 + 65);
-        //Encrypt Lowercase letters
+
+        // Encrypt Lowercase letters
         else if (islower(text[i]))
             result += char(int(text[i] + s - 97) % 26 + 97);
+
+        else
+            result += text[i];
     }
     //Return the resulting string
     return result;
@@ -431,19 +433,18 @@ string decrypt(string text)
     int s = 26 - 4;
     string result = "";
     //traverse text
-    for (int i = 0; i < (int)text.length(); i++)
+    for (int i = 0; i <= (int)text.length(); i++)
     {
-        //apply transformation to each character
-        //Encrypt Uppercase letters
-        if (!(text[i] > 65 && text[i] < 90) || !(text[i] > 97 && text[i] < 122))
-        {
-            result += text[i];
-        }
-        else if (isupper(text[i]))
+        // apply transformation to each character
+        if (isupper(text[i]))
             result += char(int(text[i] + s - 65) % 26 + 65);
-        //Encrypt Lowercase letters
+
+        // Encrypt Lowercase letters
         else if (islower(text[i]))
             result += char(int(text[i] + s - 97) % 26 + 97);
+
+        else
+            result += text[i];
     }
     //Return the resulting string
     return result;
