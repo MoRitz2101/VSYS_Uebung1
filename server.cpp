@@ -38,6 +38,12 @@ mutex mtx;
 
 void *connectionHandler(int clientSocket, sockaddr_in client, string pathFromTerminal);
 
+/**
+ * Starting point of the Server
+ * Validates Users arguments 
+ * Starts listening Socket
+ * Upon connecting with a Client, starts Thread to handle Client and continues listening
+ */
 int main(int argc, char *argv[])
 {
     // Validate amount of Parameters
@@ -105,6 +111,11 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+/**
+ * Executed in a Thread
+ * Handles Incoming Client Connections
+ * Maps Clients Commands to correspondding Functions
+ */
 void *connectionHandler(int clientSocket, sockaddr_in client, string pathFromTerminal)
 {
     char host[NI_MAXHOST];    // Client's remote name
@@ -207,6 +218,9 @@ void *connectionHandler(int clientSocket, sockaddr_in client, string pathFromTer
     return 0;
 }
 
+/**
+ * Splits string at defined delimiter and returns the result as vector 
+ */
 vector<string> split_string(const string &str,
                             const string &delimiter)
 {
@@ -225,6 +239,9 @@ vector<string> split_string(const string &str,
     return strings;
 }
 
+/**
+ * Turns char array into String
+ */
 string convertToString(char *a, int size)
 {
     int i;
@@ -236,6 +253,9 @@ string convertToString(char *a, int size)
     return s;
 }
 
+/**
+ * Implementation of SEND Command
+ */
 string sendMessage(vector<string> fromClient, string pathFromTerminal)
 {
     string Sender = fromClient.at(1);
@@ -277,6 +297,9 @@ string sendMessage(vector<string> fromClient, string pathFromTerminal)
     return "ok\0";
 }
 
+/**
+ * Implementation of LIST Command
+ */
 string listMessages(string user, string pathFromTerminal)
 {
     string path = "./" + pathFromTerminal + "/" + user;
@@ -320,6 +343,9 @@ string listMessages(string user, string pathFromTerminal)
     return returnString;
 }
 
+/**
+ * Implementation of DELETE Command
+ */
 string deleteMessage(string user, string uuid, string pathFromTerminal)
 {
     string path = "./" + pathFromTerminal + "/" + user;
@@ -336,6 +362,9 @@ string deleteMessage(string user, string uuid, string pathFromTerminal)
     }
 }
 
+/**
+ * Implementation of READ Command
+ */
 string readMessage(string user, string uuid, string pathFromTerminal)
 {
     string path = "./" + pathFromTerminal + "/" + user;

@@ -12,6 +12,12 @@ using namespace std;
 string encrypt(string text);
 string decrypt(string text);
 
+/**
+ * Starting point of the Client
+ * Validates the Users passed IP Address and PortNR
+ * Establishes Connection to the Server
+ * Handles Communication with Server
+ */
 int main(int argc, char **argv)
 {
     //	Create a socket
